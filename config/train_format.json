@@ -1,0 +1,14 @@
+{
+  "_status": "CHƯA ĐƯỢC NGƯỜI KIỂM. Cách trình bày câu noul và nhãn trường của state PhoLaya thành lựa chọn/văn bản.",
+  "reviewed": false,
+  "noul_options": {
+    "en": ["Yes", "No"],
+    "vi": ["Có", "Không"]
+  },
+  "pholaya_state_labels": {
+    "doan_van": "Đoạn văn",
+    "cau_noi": "Câu nói",
+    "binh_luan": "Bình luận",
+    "tieu_de": "Tiêu đề"
+  }
+}

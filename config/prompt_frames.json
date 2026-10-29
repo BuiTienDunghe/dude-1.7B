@@ -1,0 +1,15 @@
+{
+  "_note": "Khung prompt cố định theo ngôn ngữ của câu. Thay đổi file này làm thay đổi kết quả đo; SHA-256 được ghi vào manifest kết quả.",
+  "en": {
+    "instruction": "Read the text and answer the question. Reply with only the letter of the correct option.",
+    "state_label": "Text:",
+    "question_label": "Question:",
+    "options_label": "Options:"
+  },
+  "vi": {
+    "instruction": "Đọc văn bản và trả lời câu hỏi. Chỉ trả lời bằng chữ cái của lựa chọn đúng.",
+    "state_label": "Văn bản:",
+    "question_label": "Câu hỏi:",
+    "options_label": "Các lựa chọn:"
+  }
+}

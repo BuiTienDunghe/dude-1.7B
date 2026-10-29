@@ -1,0 +1,30 @@
+{
+  "_status": "CHƯA ĐƯỢC NGƯỜI KIỂM. Câu hỏi và mô tả lựa chọn cho khối tiếng Việt bản địa của bench_v1 (do agent viết).",
+  "reviewed": false,
+  "_reviewed_items": {"status": "người làm dự án đã duyệt ngày 2026-10-13", "items": ["factcheck_choice", "factcheck_noul"], "note": "Chỉ hai mục này được duyệt; mục khác giữ trạng thái chung ở _status/reviewed. Bản trước: config/archive_v1_0/bench_v1_questions.json"},
+  "factcheck_choice": {
+    "question": "Dựa vào văn bản, nhận định sau được văn bản xác nhận, bị văn bản bác bỏ, hay văn bản không đủ thông tin để kết luận? Nhận định: {claim}",
+    "_status": "người làm dự án đã duyệt ngày 2026-10-13",
+    "options": {
+      "supported": "Được văn bản xác nhận",
+      "refuted": "Bị văn bản bác bỏ",
+      "nei": "Văn bản không đủ thông tin"
+    }
+  },
+  "factcheck_noul": {
+    "question": "Văn bản có xác nhận phát biểu sau không? Phát biểu: {claim}",
+    "_status": "người làm dự án đã duyệt ngày 2026-10-13",
+    "true_when": "supported",
+    "options_note": "Lựa chọn lấy từ config/train_format.json noul_options.vi = [Có, Không]; đúng (Có) khi nhãn gốc là được hỗ trợ. Thứ tự Có/Không cố định, không xáo."
+  },
+  "vihsd_score": {
+    "question": "Bình luận này ở mức nào?",
+    "levels": ["sạch", "xúc phạm", "thù ghét"],
+    "_note": "Thang có thứ tự, không xáo. Nhãn gốc 0/1/2 = CLEAN/OFFENSIVE/HATE (README không ghi số; suy theo bài báo ViHSD và phân bố nhãn)."
+  },
+  "vihsd_noul": {
+    "question": "Bình luận này có nội dung xúc phạm hoặc thù ghét không?",
+    "true_when": "label in {offensive, hate}",
+    "options_note": "Có/Không như noul của factcheck; thứ tự cố định."
+  }
+}

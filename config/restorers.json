@@ -1,0 +1,14 @@
+{
+  "vit5": {
+    "repo": "nrl-ai/vn-diacritic-vit5-base",
+    "revision": "30ea5a9e4a0b9436e18915fd4dbb5876eaee7325",
+    "license_tag": "apache-2.0",
+    "base_model": "VietAI/vit5-base"
+  },
+  "small": {
+    "repo": "nrl-ai/vn-diacritic-small",
+    "revision": "379ae2d32b4fd3c232c2f579682954d1d035c9c0",
+    "license_tag": "apache-2.0",
+    "base_model": "vinai/bartpho-syllable-base"
+  }
+}

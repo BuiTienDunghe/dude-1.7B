@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng kết dự án 29/10</title>
+<style>
+:root{--ink:#1f1e1c;--mut:#5f5e5a;--line:#dedcd4;--bg:#ffffff;--card:#f7f6f2;--teal:#0f6e56;--teal-l:#e1f5ee;--coral:#993c1d;--coral-l:#faece7;--pur:#534ab7;--pur-l:#eeedfe;--amb:#854f0b;--amb-l:#faeeda;--red:#a32d2d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ink:#ecebe6;--mut:#b4b2a9;--line:#3a3936;--bg:#1b1b1a;--card:#252523;--teal:#5dcaa5;--teal-l:#0b3a2e;--coral:#f0997b;--coral-l:#4a1b0c;--pur:#afa9ec;--pur-l:#26215c;--amb:#fac775;--amb-l:#412402;--red:#f09595}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;font-weight:600;margin:0 0 4px}h2{font-size:20px;font-weight:600;margin:40px 0 8px;padding-top:8px;border-top:1px solid var(--line)}h3{font-size:16px;font-weight:600;margin:20px 0 6px}
+p,li{margin:6px 0}.mut{color:var(--mut);font-size:14px}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--card);font-weight:600}
+.box{background:var(--card);border-radius:10px;padding:14px 16px;margin:12px 0}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:6px;white-space:nowrap}
+.ok{background:var(--teal-l);color:var(--teal)}.no{background:var(--coral-l);color:var(--coral)}.now{background:var(--amb-l);color:var(--amb)}.next{background:var(--pur-l);color:var(--pur)}
+svg{width:100%;height:auto;display:block;margin:8px 0}svg text{fill:var(--ink);font:12px system-ui,sans-serif}
+.wrap{overflow-x:auto}code{font-size:13px}
+</style>
+</head>
+<body><main>
+
+<h1>Tổng kết dự án model quyết định tiếng Việt</h1>
+<p class="mut">Cập nhật 29/10/2026, khoảng 17:00. Điều phối viết từ <code>PLAN_decisions.md</code>, các báo cáo trong <code>results/</code> và nhật ký phiên. Mọi số dưới đây là trên dev 1.3; test chưa mở.</p>
+
+<div class="box">
+<b>Tóm tắt</b>
+<ul>
+<li><b>Mục tiêu:</b> model tiếng Việt tốt nhất chạy trong 40 ms trên một GPU 16 GB. Mốc cần vượt là decider-2b, <b>86,5</b> điểm VI có dấu.</li>
+<li><b>Hiện tại:</b> 2b đạt <b>84,38</b> (trung bình 2 seed), hơn bản C 2,7 điểm. Độ trễ khoảng 32 ms. Không dấu 62,85 và EN 88,67, đều đạt chỉ tiêu.</li>
+<li><b>Vướng:</b> 2b trượt một luật đặt trước (T3b) vì học mẹo trùng từ: câu Bác bỏ diễn đạt lại bị đoán thành "không đủ thông tin".</li>
+<li><b>Đang làm:</b> hướng 1 (2b′) sửa lỗi này bằng 1.500 câu ViANLI và bỏ dấu tại chỗ. Dữ liệu V-e đã xong và qua mọi cổng. Chờ duyệt train. Dự kiến 84,6–85,4.</li>
+<li><b>Tiếp theo:</b> hướng 2, cho MASSIVE (ý định), Belebele (đọc hiểu), XCOPA (nhân quả). Đây là chỗ decider hơn ta 2,65 điểm.</li>
+</ul>
+</div>
+
+<h2>1. Mục tiêu và luật chơi</h2>
+<table>
+<tr><th>Chỉ tiêu (đặt 27/10)</th><th>Ngưỡng</th><th>Hiện tại (2b, TB 2 seed)</th></tr>
+<tr><td>VI có dấu, macro 6 nguồn, dev 1.3</td><td>&gt; 86,5 (vượt decider-2b)</td><td>84,38 <span class="tag now">chưa đạt</span></td></tr>
+<tr><td>VI không dấu</td><td>≥ 61</td><td>62,85 <span class="tag ok">đạt</span></td></tr>
+<tr><td>Tiếng Anh</td><td>≥ 87</td><td>88,67 <span class="tag ok">đạt</span></td></tr>
+<tr><td>Độ trễ, trung vị batch 1</td><td>≤ 40 ms</td><td>khoảng 32 ms <span class="tag ok">đạt</span></td></tr>
+</table>
+
+<h3>Luật thường trực</h3>
+<ul>
+<li><b>Test khóa bằng mã băm.</b> Không chạy model nào trên test. Chỉ chấm một lần ở cuối, theo giao thức ghi trước.</li>
+<li><b>Train:</b> không train khi bạn chưa duyệt. Trước mỗi lần train có phân tích trước (khoảng trống, độ nhạy, ngân sách, kiểm dữ liệu) và Fable phản biện. Luật đọc kết quả được ghi trước khi chạy.</li>
+<li><b>Chữ tiếng Việt:</b> agent không tự viết chữ tiếng Việt mới vào bench, config hay dữ liệu train. Chữ mới đi qua <code>config/vi_proposals.jsonl</code> và bạn duyệt.</li>
+<li><b>Dữ liệu cấm:</b>
+  <ul>
+  <li>dữ liệu UIT chỉ dùng nội bộ;</li>
+  <li>không train trên split train của ViWikiFC và ViFactCheck;</li>
+  <li>các bộ bench (MASSIVE, Belebele, XCOPA, SIB-200…) bị cấm train.</li>
+  </ul></li>
+<li><b>Ngưỡng dừng:</b>
+  <ul>
+  <li>GPU &gt; 85°C;</li>
+  <li>quota tuần 35% (tuần reset 04/11); Fable cũng 35%;</li>
+  <li>không dùng credit trả thêm.</li>
+  </ul></li>
+<li><b>GPU dùng chung với Ún:</b> xin nhường trước khi dùng, trả lại khi xong.</li>
+<li><b>Nhiễu seed:</b> chênh giữa 2 seed khoảng 0,9 điểm macro. Ứng viên nào cách nhau dưới 2 điểm thì phải chạy 2 seed mới đọc được.</li>
+</ul>
+
+<h2>2. Benchmark và cách đo</h2>
+<ul>
+<li><b>Bench 1.3</b>, đóng băng 17/10: dev 3.847 dòng, test khóa sha.</li>
+<li><b>6 nguồn tiếng Việt</b>, tính trung bình đều theo nguồn:
+  <ul>
+  <li>kiểm chứng: ViFactCheck (158 câu), ViWikiFC (285);</li>
+  <li>chủ đề: SIB-200 (299);</li>
+  <li>ý định: MASSIVE (294);</li>
+  <li>đọc hiểu: Belebele (294);</li>
+  <li>nhân quả: XCOPA (100).</li>
+  </ul></li>
+<li><b>Ba chế độ:</b> có dấu, không dấu, tiếng Anh.</li>
+<li><b>Cách chấm:</b> model chọn chữ cái đáp án; điểm lấy từ logit của các chữ cái.</li>
+<li><b>Bộ phép thử phụ (probe_v1):</b>
+  <ul>
+  <li>P4: văn bản lạc đề thì phải trả lời "không đủ thông tin";</li>
+  <li>Pa: lựa chọn không dấu;</li>
+  <li>P5: đổi khung câu hỏi;</li>
+  <li>Pb: nhãn tiếng Anh.</li>
+  </ul></li>
+<li><b>Proxy:</b> 300 câu kiểm chứng ngoài mẫu, dùng để chọn checkpoint và ngưỡng. Không bao giờ train trên proxy.</li>
+<li><b>Trọng số một câu:</b> 1 câu XCOPA = 0,167 điểm macro; ViFactCheck 0,105; ViWikiFC 0,058; ba nguồn còn lại khoảng 0,057.</li>
+</ul>
+
+<h2>3. Điểm VI có dấu qua các mốc</h2>
+<svg viewBox="0 0 680 360" role="img" aria-label="Điểm VI có dấu qua các mốc">
+<g stroke="#d8d6ce" stroke-width="0.6"><line x1="284" y1="48" x2="284" y2="312"/><line x1="368" y1="48" x2="368" y2="312"/><line x1="452" y1="48" x2="452" y2="312"/><line x1="536" y1="48" x2="536" y2="312"/><line x1="620" y1="48" x2="620" y2="312"/></g>
+<text x="40" y="76">Qwen3-1.7B gốc</text><rect x="200" y="60" width="95" height="24" rx="4" fill="#b4b2a9"/><text x="287" y="76" text-anchor="end">70,65</text>
+<text x="40" y="120">M1: train lần đầu</text><rect x="200" y="104" width="250" height="24" rx="4" fill="#b4b2a9"/><text x="442" y="120" text-anchor="end">79,88</text>
+<text x="40" y="164">C: thêm dữ liệu dịch</text><rect x="200" y="148" width="280" height="24" rx="4" fill="#b4b2a9"/><text x="472" y="164" text-anchor="end">81,65</text>
+<text x="40" y="208">2b, seed 1</text><rect x="200" y="192" width="333" height="24" rx="4" fill="#5dcaa5"/><text x="525" y="208" text-anchor="end">84,84</text>
+<text x="40" y="252">2b, seed 2</text><rect x="200" y="236" width="318" height="24" rx="4" fill="#5dcaa5"/><text x="510" y="252" text-anchor="end">83,92</text>
+<text x="40" y="296">2b′ (dự đoán)</text><rect x="200" y="280" width="334" height="24" rx="4" fill="none" stroke="#1d9e75" stroke-dasharray="4 3"/><text x="526" y="296" text-anchor="end">≈ 84,9</text>
+<g stroke="#0f6e56" stroke-width="1.5"><line x1="529" y1="292" x2="543" y2="292"/><line x1="529" y1="286" x2="529" y2="298"/><line x1="543" y1="286" x2="543" y2="298"/></g>
+<line x1="561" y1="48" x2="561" y2="312" stroke="#e24b4a" stroke-width="1.5" stroke-dasharray="5 4"/><text x="561" y="38" text-anchor="middle">Đích: decider-2b 86,5</text>
+<text x="284" y="332" text-anchor="middle">70</text><text x="368" y="332" text-anchor="middle">75</text><text x="452" y="332" text-anchor="middle">80</text><text x="536" y="332" text-anchor="middle">85</text><text x="620" y="332" text-anchor="middle">90</text>
+</svg>
+<div class="wrap"><table>
+<tr><th>Model</th><th>VI có dấu</th><th>Không dấu</th><th>EN</th><th>Ghi chú</th></tr>
+<tr><td>Qwen3-1.7B gốc (M0)</td><td>70,65</td><td>—</td><td>—</td><td>chưa train</td></tr>
+<tr><td>M1 (train_v0)</td><td>79,88</td><td>—</td><td>—</td><td>train đầu tiên, 12/10</td></tr>
+<tr><td>C (26/10)</td><td>81,65</td><td>63,97</td><td>88,20</td><td>thêm dữ liệu VI và dịch; độ trễ 32,6 ms</td></tr>
+<tr><td>2b-s1 (28/10)</td><td>84,84</td><td>63,35</td><td>88,80</td><td>C′ + KC Wikipedia</td></tr>
+<tr><td>2b-s2 (29/10)</td><td>83,92</td><td>62,34</td><td>88,54</td><td>cùng dữ liệu, seed 2</td></tr>
+<tr><td><b>2b, TB 2 seed</b></td><td><b>84,38</b></td><td>62,85</td><td>88,67</td><td>+2,73 so với C, CI [+0,90; +4,68]</td></tr>
+<tr><td>decider-2b-text (mốc)</td><td>86,50</td><td>49,6</td><td>—</td><td>cùng cỡ; khoảng 1,47 triệu dòng/epoch, teacher 27B, RL</td></tr>
+<tr><td>Quyet-1.0-Medium (tham chiếu)</td><td>khoảng 89,5</td><td>—</td><td>—</td><td>4,66B tham số, khoảng 88 ms: quá chậm</td></tr>
+</table></div>
+
+<h2>4. Dòng thời gian</h2>
+<div class="wrap"><table>
+<tr><th style="width:90px">Ngày</th><th>Việc</th><th>Kết quả và quyết định</th></tr>
+<tr><td>12/10</td><td>Plan gốc, bước 1–4: khung câu hỏi, loss, chọn model, đo độ trễ</td><td>Chọn Qwen3-1.7B (hơn 0.6B 5,2 điểm VI). Loss full_vocab. Kiểu dùng mặc định là từng yêu cầu một.</td></tr>
+<tr><td>13/10</td><td>Hai lần thử: bỏ dấu ngẫu nhiên (strip_v0), fine-tune từ decider-2b</td><td>strip_v0 <span class="tag no">không đạt</span>. Fine-tune decider "đáng theo", nhưng VI có dấu song song giảm 1,8 và không dấu vẫn yếu.</td></tr>
+<tr><td>13–17/10</td><td>Dựng benchmark 1.0 → 1.1 → 1.2 → 1.3; công cụ hiệu đính; cổng duyệt tiếng Việt</td><td>Opus soát dịch và đáp án; bạn dịch lại một số đoạn Belebele; đọc mù 134 cặp. Bench 1.3 <span class="tag ok">đóng băng 17/10</span>, MLQA dời sang 1.4. Chấm các model khác: Quyet-Medium 89,4, decider 86,3 (dev 1.2).</td></tr>
+<tr><td>17–20/10</td><td>Chốt 1.7B (không train nhánh 2B); giai đoạn 0 dựng dữ liệu</td><td>Phần A: VI có sẵn, với 25 chuỗi mới bạn đã duyệt. Phần B: dịch 6.944 dòng EN bằng Sonnet có đọc lại. Ra <code>C.jsonl</code> 31.034 dòng.</td></tr>
+<tr><td>26/10</td><td>Bộ phép thử probe_v1; train thử C</td><td>C: 81,65 VI, 63,97 không dấu, 88,20 EN. Độ trễ trung vị 32,6 ms. Nhưng P4 kém: chỉ 62,5% chọn "không đủ thông tin" khi văn bản lạc đề.</td></tr>
+<tr><td>27/10</td><td>Kiểm toán toàn dự án (3 Fable); nghiên cứu hướng đi (3 Fable + 1 phản biện)</td><td>Dữ liệu VI lệch khung bench; 1.109 dòng không có văn bản; NEI chỉ 12,8% (bench 31%). Khoảng cách với decider chủ yếu do công thức train. <b>Đổi mục tiêu</b> sang "tốt nhất trong ≤ 40 ms, vượt 86,5".</td></tr>
+<tr><td>28/10</td><td>Bước 0 sửa lỗi; G0 đo model nền; chẩn đoán teacher; dựng dữ liệu 2b</td><td>4B: 84,1 nhưng 82 ms → loại. 2B-Base không hơn → giữ 1.7B. <span class="tag no">Bỏ 2a</span> (chưng cất từ Quyet). Dữ liệu 2b: C′ đã sửa, cộng 3.000 câu kiểm chứng tự dựng từ Wikipedia (KC), đọc mù 2 vòng.</td></tr>
+<tr><td>28/10</td><td>Train 2b-s1 (4,2 giờ GPU, tối đa 79°C)</td><td>84,84. Đạt 10/10 luật đặt trước. ViFactCheck 72,2 → 89,9.</td></tr>
+<tr><td>29/10 sáng</td><td>Train 2b-s2 (4,1 giờ GPU, tối đa 77°C); hạ ngưỡng quota xuống 35%</td><td>83,92. Trung bình 2 seed 84,38. <span class="tag no">T3b trượt</span>: nhận đúng Xác nhận + Bác bỏ ViWikiFC 90/120, cần 94. Câu Bác bỏ nhận đúng: C 0,878 → s1 0,770 → s2 0,608.</td></tr>
+<tr><td>29/10 chiều</td><td>Phân tích lỗi; hướng 1 phần CPU</td><td>Tìm ra mẹo trùng từ. Bỏ ngưỡng câu Có/Không. Kiểm kê ViANLI. Dựng 2b′; bỏ lần 2 vì lách cổng. Fable phân tích → bản V-e. Ghi luật đọc trước. Sửa lính gác nhiệt. <span class="tag now">chờ duyệt train</span></td></tr>
+</table></div>
+
+<h2>5. Các hướng đã xét</h2>
+<div class="wrap"><table>
+<tr><th>Hướng</th><th>Trạng thái</th><th>Vì sao</th></tr>
+<tr><td>Bước 0: sửa lỗi quy trình (xáo thứ tự, loss, trần 2.048 token, chữ nhãn)</td><td><span class="tag ok">xong</span></td><td>Kiểm toán ngày 27/10 tìm ra các lỗi này.</td></tr>
+<tr><td>G0: đo model nền và khung prompt</td><td><span class="tag ok">xong</span></td><td>Giữ 1.7B và khung tiếng Việt.</td></tr>
+<tr><td>Đổi model nền (Qwen3.5-2B-Base, Qwen3.5-4B)</td><td><span class="tag no">bỏ</span></td><td>4B vỡ độ trễ (82 / 138 / 264 ms); 2B-Base 68,2, thấp hơn 1.7B gốc.</td></tr>
+<tr><td>Train tiếp từ decider-2b</td><td><span class="tag no">bỏ</span></td><td>Không dấu chỉ 49,6, thấp hơn chỉ tiêu 61; phải đổi định dạng.</td></tr>
+<tr><td>2a: chưng cất từ Quyet-Medium</td><td><span class="tag no">bỏ</span></td><td>Quyet chỉ đồng ý 81% nhãn và kém NEI cùng chủ đề. Tác động quá nhỏ để đo được. Tiết kiệm 6–9 giờ GPU.</td></tr>
+<tr><td>Bước 1: tăng tốc train (Liger, xếp batch theo độ dài)</td><td><span class="tag next">hoãn</span></td><td>Chưa làm.</td></tr>
+<tr><td>2b: sửa dữ liệu đúng khung bench (C′ + KC)</td><td><span class="tag ok">xong</span></td><td>+2,73 so với C, nhưng trượt T3b (mục 6).</td></tr>
+<tr><td><b>Hướng 1 (2b′):</b> sửa lỗi Bác bỏ</td><td><span class="tag now">đang làm</span></td><td>Sửa lỗi đã rõ nguyên nhân, để có nền qua mọi luật (mục 7).</td></tr>
+<tr><td><b>Hướng 2:</b> MASSIVE, Belebele, XCOPA</td><td><span class="tag next">tiếp theo</span></td><td>Chỗ hụt thật tới 86,5 (mục 8).</td></tr>
+<tr><td>2c: thêm tiếng Anh theo bậc 50k rồi 100k</td><td><span class="tag next">dự trữ</span></td><td>Một cách làm có thể dùng trong hướng 2.</td></tr>
+<tr><td>Bước 3: gộp 2 seed, tự nhất quán theo hoán vị</td><td><span class="tag next">dự trữ</span></td><td>Gần như không tốn GPU; dự kiến +0 đến +1,5. Riêng ngưỡng câu Có/Không đã thử ngày 29/10: không giúp được 2b.</td></tr>
+<tr><td>DPO/GRPO, sinh dữ liệu bằng LLM, dịch thêm, 4B làm model chính</td><td><span class="tag no">không làm</span></td><td>Đầu ra chỉ 1 token; chữ mới phải duyệt 100%; vỡ độ trễ.</td></tr>
+</table></div>
+
+<h2>6. 2b: được gì và lỗi ở đâu</h2>
+<div class="wrap"><table>
+<tr><th>Nguồn (dev, có dấu)</th><th>C</th><th>2b-s1</th><th>decider</th><th>decider hơn 2b (điểm macro)</th></tr>
+<tr><td>ViFactCheck</td><td>72,2</td><td>89,9</td><td>83,5</td><td>−1,05 (ta hơn)</td></tr>
+<tr><td>ViWikiFC</td><td>80,7</td><td>82,8</td><td>82,8</td><td>0,00</td></tr>
+<tr><td>SIB-200</td><td>79,9</td><td>81,9</td><td>82,3</td><td>+0,06</td></tr>
+<tr><td>MASSIVE</td><td>88,1</td><td>89,5</td><td>96,3</td><td><b>+1,13</b></td></tr>
+<tr><td>Belebele</td><td>84,0</td><td>83,0</td><td>88,1</td><td><b>+0,85</b></td></tr>
+<tr><td>XCOPA</td><td>85,0</td><td>82,0</td><td>86,0</td><td><b>+0,67</b></td></tr>
+<tr><td>Macro</td><td>81,65</td><td>84,84</td><td>86,50</td><td>+1,66</td></tr>
+</table></div>
+<p><b>Lỗi Bác bỏ (mẹo trùng từ).</b> Trong KC, câu Bác bỏ chỉ có hai kiểu: chép gần nguyên câu gốc rồi đổi số hoặc đổi tên. Câu "không đủ thông tin" thì ít trùng từ với văn bản. Model học luật "ít trùng từ thì là không đủ thông tin". Nhưng câu Bác bỏ thật được diễn đạt lại: 61% có độ trùng dưới 0,7. Vì vậy chúng bị đoán thành "không đủ thông tin": s2 đoán sai kiểu này 20/74 câu, C chỉ 3. Đọc tay 24 câu sai cho thấy các kiểu bác bỏ mà KC không có: lượng từ, phủ định, thay danh từ hoặc động từ, đảo vai, suy luận số hoặc thời gian.</p>
+<svg viewBox="0 0 680 340" role="img" aria-label="Mẹo trùng từ">
+<line x1="501" y1="36" x2="501" y2="286" stroke="#888780" stroke-width="0.6" stroke-dasharray="4 4"/>
+<text x="40" y="74" style="font-weight:600">KC tự dựng (train)</text>
+<rect x="210" y="52" width="200" height="56" rx="6" fill="#f1efe8" stroke="#888780" stroke-width="0.6"/><text x="310" y="76" text-anchor="middle" fill="#444441">Không đủ thông tin</text><text x="310" y="94" text-anchor="middle" fill="#5f5e5a">câu khác, ít trùng</text>
+<rect x="520" y="52" width="110" height="56" rx="6" fill="#faece7" stroke="#993c1d" stroke-width="0.6"/><text x="575" y="76" text-anchor="middle" fill="#712b13">Bác bỏ</text><text x="575" y="94" text-anchor="middle" fill="#993c1d">đổi số / tên</text>
+<text x="40" y="154" style="font-weight:600">Dev thật</text>
+<rect x="290" y="132" width="320" height="56" rx="6" fill="#faece7" stroke="#993c1d" stroke-width="0.6"/><text x="450" y="156" text-anchor="middle" fill="#712b13">Bác bỏ thật</text><text x="450" y="174" text-anchor="middle" fill="#993c1d">61% trùng dưới 0,7</text>
+<text x="40" y="234" style="font-weight:600">ViANLI thêm (2b′)</text>
+<rect x="280" y="212" width="250" height="56" rx="6" fill="#faece7" stroke="#993c1d" stroke-width="0.6"/><text x="405" y="236" text-anchor="middle" fill="#712b13">Bác bỏ do người viết</text><text x="405" y="254" text-anchor="middle" fill="#993c1d">59% trùng dưới 0,7</text>
+<line x1="200" y1="296" x2="626" y2="296" stroke="#888780" stroke-width="0.8"/>
+<text x="200" y="318">trùng ít</text><text x="501" y="318" text-anchor="middle">0,7</text><text x="630" y="318" text-anchor="end">trùng nhiều với văn bản</text>
+</svg>
+
+<h2>7. Hướng 1 (2b′): sửa lỗi Bác bỏ</h2>
+<h3>Đã làm ngày 29/10 (chỉ CPU)</h3>
+<ol>
+<li><b>Ngưỡng câu Có/Không</b> (fit trên proxy): không giúp 2b (s1 −0,23; s2 0,00), ngưỡng không ổn định → bỏ, chỉ giữ làm chỉ báo.</li>
+<li><b>Kiểm kê ViANLI.</b> Sau khi bỏ cặp đã có trong C′ và cặp chạm khử trùng, còn 6.890 cặp. So với Bác bỏ dev:
+  <ul>
+  <li>độ trùng từ trung vị của câu mâu thuẫn là 0,625 (Bác bỏ dev 0,667; KC 0,909);</li>
+  <li>điều phối đọc 40 câu: 28 câu đúng 5 kiểu dev đang sai, 1 câu kiểu KC, 6 câu nhãn đáng ngờ (15%).</li>
+  </ul></li>
+<li><b>Dựng khối ViANLI</b> 1.500 dòng (Bác bỏ 593, Xác nhận 512, NEI 395):
+  <ul>
+  <li>văn bản = tiền đề thật cộng 2 tiền đề nhiễu, vị trí ngẫu nhiên;</li>
+  <li>câu hỏi và nhãn chép đúng dev, không có chữ mới;</li>
+  <li>khử trùng 0 chạm.</li>
+  </ul></li>
+<li><b>Bỏ dấu tại chỗ</b> (không tạo bản sao): 304 dòng ViANLI, 300 dòng kiểm chứng dịch, 323 dòng đọc hiểu và ý định. Câu không dấu tăng từ 587 lên khoảng 1.500.</li>
+<li><b>Bỏ lần dựng 2.</b> Lần 2 qua cổng nhờ đảo ngược tương quan (probe trên riêng ViANLI đạt 1,000), tức là lách cổng.</li>
+<li><b>Fable phân tích trước train</b> và tìm ra lỗi trong brief: chọn câu kiểm chứng dịch để bỏ dấu theo độ trùng thấp đã lấy mất 117 câu Bác bỏ trùng thấp có dấu. Bản <b>V-e</b> chọn theo hash ngẫu nhiên, nên câu Bác bỏ trùng thấp có dấu tăng từ 233 lên 295.</li>
+<li><b>V-e qua mọi cổng</b> D1–D12. File <code>results/train_2b_prime/train_2b_prime.jsonl</code>, 33.096 dòng, sha <code>c97bb08d…</code>.</li>
+<li><b>Sửa lính gác nhiệt.</b> Nó chết vì một session dọn ổ đĩa chạy <code>wsl --shutdown</code>. Bản v2 có vòng tự khởi động lại.</li>
+</ol>
+
+<h3>Dự đoán (Fable, TB 2 seed) và luật đọc ghi trước</h3>
+<table>
+<tr><th>Chỉ số</th><th>2b</th><th>2b′ dự đoán</th></tr>
+<tr><td>VI có dấu</td><td>84,38</td><td>84,6–85,4 (khoảng 84,9)</td></tr>
+<tr><td>Bác bỏ ViWikiFC nhận đúng</td><td>0,689</td><td>0,72–0,80</td></tr>
+<tr><td>"Có" ở câu Có/Không</td><td>0,820</td><td>0,85–0,90</td></tr>
+<tr><td>NEI ViFactCheck nhận đúng</td><td>0,809</td><td>0,76–0,82</td></tr>
+<tr><td>Không dấu</td><td>62,85</td><td>63,5–65</td></tr>
+</table>
+<ul>
+<li><b>Seed 1 chỉ để dừng:</b> dừng nếu VI &lt; 83,4, NEI ViFactCheck &lt; 0,70, "Có" &lt; 0,80, hoặc ViFactCheck &lt; 85,0.</li>
+<li><b>Trung bình 2 seed quyết nền:</b>
+  <ul>
+  <li>A1: VI ≥ 84,38;</li>
+  <li>A2: "Có" ≥ 0,867;</li>
+  <li>A3: T3b ≥ 94/120;</li>
+  <li>A4: NEI ViFactCheck ≥ 0,75 và ViFactCheck ≥ 86,0;</li>
+  <li>A5: không dấu ≥ 62,85;</li>
+  <li>A6: EN ≥ 87,2.</li>
+  </ul>
+  Đạt A1 + A2 + A4 thì nền mới là 2b′. Ngược lại giữ 2b.</li>
+<li><b>Giới hạn của 2 seed:</b> chỉ phát hiện được chênh từ 1,5–2 điểm trở lên. Vì vậy chỉ đọc được "2b′ có kém 2b không", chứ không khẳng định được nó hơn khoảng 0,5.</li>
+<li><b>Hướng 1 kết thúc sau lần train này</b>, kết quả thế nào cũng vậy. Không thử 2b″.</li>
+</ul>
+<p class="mut">Chi tiết: <code>results/huong_di_2710/FABLE_truoc_train_2b_prime.md</code>, <code>PHAN_TICH_TRUOC_TRAIN_2b.md</code> mục 12, <code>results/BRIEF_2b_prime_du_lieu.md</code>, <code>results/train_2b_prime/REPORT_2b_prime_du_lieu.md</code>.</p>
+
+<h2>8. Hướng tiếp theo</h2>
+<h3>Hướng 2: ba nguồn yếu</h3>
+<p>Ở phần kiểm chứng, ta đã ngang hoặc hơn decider. Toàn bộ khoảng cách tới 86,5 nằm ở ba nguồn, tổng cộng 2,65 điểm macro:</p>
+<ul>
+<li><b>MASSIVE</b> (+1,13): nhầm các ý định gần nghĩa, ví dụ "đọc danh sách" với "trả lời kiến thức";</li>
+<li><b>Belebele</b> (+0,85): đọc hiểu đoạn dài;</li>
+<li><b>XCOPA</b> (+0,67): nhân quả. Một câu XCOPA đáng 0,167 điểm, nên chỉ cần thêm 4 câu đúng là được 0,67.</li>
+</ul>
+<p><b>Khó khăn:</b> chính ba bộ này bị cấm train, nên phải tìm nguồn khác cùng dạng. Các lựa chọn cần nghiên cứu:</p>
+<ol>
+<li><b>Nguồn ý định:</b> tận dụng tốt hơn các nguồn đã có trong C′ (vi-tourism, multidogo, banking77, clinc), hoặc tìm nguồn ý định tiếng Việt mới. Tập trung vào cặp ý định gần nghĩa.</li>
+<li><b>Đọc hiểu và nhân quả:</b> nguồn có giấy phép (VSMRC và các bộ đọc hiểu dịch đã có), hoặc dựng bằng chương trình như KC.</li>
+<li><b>2c:</b> thêm tiếng Anh theo bậc 50k rồi 100k dòng. decider-2b không có dữ liệu tiếng Việt mà vẫn đạt 86,5, nên quy mô và độ đa dạng có thể là đòn bẩy.</li>
+<li><b>Bước 3:</b> gộp 2 seed hoặc tự nhất quán theo hoán vị, gần như không tốn GPU.</li>
+</ol>
+<p><b>Làm theo thứ tự:</b> Fable nghiên cứu nguồn (CPU) → bạn duyệt nếu cần tải hoặc thêm chữ mới → dựng dữ liệu → phân tích trước train → train 2 seed. Phần nghiên cứu có thể chạy song song với lúc train 2b′.</p>
+
+<h3>Tuyên bố cuối</h3>
+<p>Chỉ nói "vượt 86,5" khi trung bình 2 seed trên dev ≥ 87,2. Sau đó chấm test một lần theo giao thức ghi trước. Kỳ vọng test bằng khoảng ½–⅔ mức tăng trên dev.</p>
+
+<h2>9. Đang chờ bạn quyết</h2>
+<table>
+<tr><th>#</th><th>Việc</th><th>Chi phí</th><th>Đề xuất</th></tr>
+<tr><td>1</td><td>Đọc mù 60 câu ViANLI (30 Bác bỏ + 30 NEI). Từ 8/30 câu lệch nhãn trở lên thì không train.</td><td>dưới 1% quota tuần</td><td>Nên làm</td></tr>
+<tr><td>2</td><td>Train V-e 2 seed, nếu bước 1 đạt</td><td>khoảng 8 giờ GPU; xin Ún nhường; session dọn ổ đĩa không được tắt WSL trong lúc train</td><td>Nên làm</td></tr>
+<tr><td>3</td><td>Phần CPU của hướng 2 (Fable tìm nguồn)</td><td>vài % quota Fable</td><td>Nên làm song song</td></tr>
+</table>
+<p class="mut">Tài nguyên lúc viết: quota tuần 18%, Fable 20% (ngưỡng 35%, reset 04/11). GPU rảnh, khoảng 42°C.</p>
+
+<h2>10. Rủi ro và giới hạn</h2>
+<ul>
+<li><b>Nhiễu seed lớn:</b> ViWikiFC lệch 6,7 điểm giữa 2 seed. Mọi so sánh dưới 2 điểm đều cần 2 seed.</li>
+<li><b>Dữ liệu tự dựng tạo mẹo:</b> KC đã tạo ra mẹo trùng từ. Mọi khối mới phải qua probe bề mặt riêng.</li>
+<li><b>Học theo định dạng:</b> khối ViANLI có văn bản gồm 3 câu báo ngắn. Model có thể học luật riêng cho định dạng này; CPU không đo được.</li>
+<li><b>Nhãn ViANLI nhiễu:</b> khoảng 15% (điều phối đọc), gần mức của dev.</li>
+<li><b>Ba nguồn yếu bị cấm train</b>, nên hướng 2 phụ thuộc vào việc tìm được nguồn thay thế.</li>
+<li><b>Độ trễ:</b> chỉ đạt 40 ms ở trung vị. p90 là 47 ms, p95 là 85 ms (ViFactCheck văn bản dài). Đường CUDA graphs chưa sửa.</li>
+<li><b>Mọi model chỉ dùng nội bộ,</b> vì dữ liệu train có nguồn UIT.</li>
+</ul>
+
+<h2>11. File tham chiếu</h2>
+<ul>
+<li><code>PLAN_decisions.md</code>: nhật ký mọi quyết định, có ngày.</li>
+<li><code>results/huong_di_2710/TONG_HOP_huong_di.md</code>: lộ trình gốc ngày 27/10.</li>
+<li><code>results/huong_di_2710/TOM_TAT_SANG_2810.md</code>: kết quả G0, quyết định bỏ 2a.</li>
+<li><code>results/huong_di_2710/PHAN_TICH_TRUOC_TRAIN_2b.md</code>: luật đọc 2b (mục 9–11b) và 2b′ (mục 12).</li>
+<li><code>results/train_2b/REPORT_2b_bac1.md</code>, <code>REPORT_2b_bac2.md</code>, <code>PHAN_TICH_LOI_BACBO.md</code>.</li>
+<li><code>results/huong_di_2710/FABLE_nguyen_nhan_2b_va_huong_sua.md</code>, <code>FABLE_truoc_train_2b_prime.md</code>.</li>
+<li><code>results/BRIEF_2b_prime_du_lieu.md</code>, <code>results/train_2b_prime/REPORT_2b_prime_du_lieu.md</code>.</li>
+</ul>
+
+</main></body>
+</html>
